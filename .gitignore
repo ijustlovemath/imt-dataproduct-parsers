@@ -1,0 +1,6 @@
+*.csv
+*.log
+!*.py
+__pycache__/
+*.swp
+*.swo
