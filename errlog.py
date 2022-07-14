@@ -157,9 +157,37 @@ def plot_sensor_data(df):
     frames = get_sensor_dataframes(df)
     for i, frame in enumerate(frames):
         plt.plot(frame["rel_time"], frame["value"], label=f"ID {i}")
+        
+        import numpy as np
+        print(f"\nreport for ID {i}")
+    
+        def analyze(name, callback):
+            print(name, ":", callback(frame["value"]))
+        
+        analyze("mean", np.mean)
+        analyze("cv", lambda x: 100.0*np.std(x)/np.mean(x))
+        
+        def inrange(x, lower, upper):
+            return 100.0*sum(1 for val in x if lower <= val <= upper) / len(x)
+
+        analyze("70-140", lambda x: inrange(x, 70, 140))
+        analyze("0-70", lambda x: inrange(x, 0, 70))
+        analyze("70-180", lambda x: inrange(x, 70, 180))
+        analyze("100-140", lambda x: inrange(x, 100, 140))
 
     plt.legend(loc='upper right')
     plt.show()
+    
+base_patients = ["IMT_ERROR_LOG_20220629182758", "IMT_ERROR_LOG_20220706153403"]
+root = "C:/Users/jcdej/MEGA/Dropbox/IMT-everything/Supporting documents/IMT Fusion - early human testing/Emory First Human Testing/IMT Data Export/2022_07_07_1541/Error Logs/Error Logs"
+patients = [root + '/' + pt + '.log' for pt in base_patients]
+
+
+def analyze_patient(filename):
+    import os
+    print(os.path.basename(filename))
+    df = err_log_dataframe(filename)
+    plot_sensor_data(df)
 
 def plot_pump_data(df):
     import matplotlib.pyplot as plt

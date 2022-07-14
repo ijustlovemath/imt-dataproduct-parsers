@@ -3,6 +3,10 @@ import argparse
 import matplotlib.pyplot as plt
 from imt_analysis import get_data_log_df_setup
 import pandas as pd
+import numpy as np
+
+# Trying to make it pretty
+import seaborn
 
 def create_plots(config):
     glucose_df, setup_info = get_data_log_df_setup(config.datalog)
@@ -45,19 +49,52 @@ def create_plots(config):
 
 
     # Do all the plotting setup, add the axes
-    fix, gluc_axis = plt.subplots()
+    fig, gluc_axis = plt.subplots()
     ins_axis = gluc_axis.twinx()
     dex_axis = gluc_axis.twinx()
 
+    gluc_axis.set_xlim(-5, glucose_df["rel_time_min"].max() + 20)
+    
+    # Label the axes
+    gluc_axis.set_ylabel("Glucose (mg/dL)")
+    gluc_axis.set_xlabel("Time (min)")
+    ins_axis.set_ylabel("Insulin Rate (U/kg/hr)")
+    dex_axis.set_ylabel("Dextrose Rate (mg/kg/min)")
+
     # Give it some breathing room, courtesy of here: https://towardsdatascience.com/adding-a-third-y-axis-to-python-combo-chart-39f60fb66708
     # They had a bug, though, its spines["right"]
-    dex_axis.spines["right"].set_position(("axes", 1.10))
+    dex_axis.spines["right"].set_position(("axes", 1.08))
 
 
-    # Now plot the data
-    gluc_axis.plot(glucose_df["rel_time_min"], glucose_df["Glucose (mg/dL)"], color="blue")
-    ins_axis.plot(insulin["rel_time_min"], insulin["rate1_per_kg"], color="red")
-    dex_axis.plot(dextrose["rel_time_min"], dextrose["rate1_per_kg"], color="green")
+    # Now plot the data, using the colors from the LabVIEW plot
+    gluc_axis.plot(glucose_df["rel_time_min"], glucose_df["Glucose (mg/dL)"]
+            , color="#0041DC"
+            , marker='.'
+            , label="Glucose (mg/dL)"
+    )
+
+    # Control range
+    gluc_axis.plot(glucose_df["rel_time_min"], 100*np.ones_like(glucose_df["rel_time_min"])
+            , color="#00EBEF"
+            , linestyle="dashed"
+            , label="Control Range"
+    )
+    gluc_axis.plot(glucose_df["rel_time_min"], 140*np.ones_like(glucose_df["rel_time_min"])
+            , color="#00EBEF"
+            , linestyle="dashed"
+    )
+
+    # Insulin
+    ins_axis.plot(insulin["rel_time_min"], insulin["rate1_per_kg"]
+            , color="#FF4242"
+            , label="Insulin Rate (U/kg/hr)"
+    )
+
+    # Dextrose (including boluses)
+    dex_axis.plot(dextrose["rel_time_min"], dextrose["rate1_per_kg"]
+            , color="#0EFF00"
+            , label="Dextrose Rate (mg/kg/min)"
+    )
 
     plt.show()
 
