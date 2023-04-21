@@ -204,7 +204,10 @@ def get_app_setup_info(filename):
 
         name = app_setup_raw[name_key]
         s = app_setup_raw[string_value_key]
-        d = float(app_setup_raw[float_value_key])
+        try:
+            d = float(app_setup_raw[float_value_key])
+        except:
+            d = float('NaN')
 
         app_setup_info_strings[name] = s
         app_setup_info_floats[name] = d
@@ -267,6 +270,18 @@ class GlucoseStats:
         self.dextrose_rate = get_dextrose_rate_stats(err_log_df, setup_info)
         self.insulin_rate = get_insulin_rate_stats(err_log_df, setup_info)
 
+def print_pump_stats(err_log_df, setup_info):
+    get_dextrose_rate_stats(err_log_df, setup_info)
+    print("")
+    get_insulin_rate_stats(err_log_df, setup_info)
+
+def print_pump_stats_easy(filename):
+    df = err_log_dataframe(filename)
+    setup_info_floats = get_app_setup_info(filename)[1]
+    print_pump_stats(df, setup_info_floats)
+
+    
+
 
 def get_glucose_stats(err_log_df, data_log_df):
     '''This function takes both the err_log_df and the data_log_df and returns the 
@@ -290,7 +305,20 @@ def get_glucose_stats(err_log_df, data_log_df):
     return my_dict
 
 
+def try_keys(setup_info, keys, failure_message):
+    value = None
+    for key in keys:
+        try:
+            value = setup_info[key]
+            break
+        except KeyError:
+            pass
+    if value is None:
+        raise ValueError(failure_message)
+    return value
+
 def get_dextrose_rate_stats(err_log_df, setup_info):
+    # setup_info is the corresponding data log dataframe, not get_app_setup_info
     #volume in mL = integral over all time for a given rate (all rates are mL/hr so integral will be mL)
     #mg of dextrose = [dex concentration] * 1 g/100mL * volumne in mL * 1000mg/g
     #mg/kg/min = mg of dextrose / patient weight / total time in minutes
@@ -299,22 +327,27 @@ def get_dextrose_rate_stats(err_log_df, setup_info):
     
     volume = np.dot(dextrose_rate_df['Rate (mL/hr)'][:-1], np.diff(dextrose_rate_df['rel_time']/60))
 
-    dex_concentration = setup_info['Dextrose Concentration (g/100mL)']
-    
+    dex_concentration = try_keys(setup_info, 
+            ['Dextrose Concentration (g/100mL)', 'Dextrose Concentration']
+            , "Unable to find dextrose concentration in setup information"
+    )
+
     mg_dextrose = dex_concentration * (1/100) * volume * 1000
     
-    patient_weight = setup_info['Patient Weight (kg)']
+    patient_weight = try_keys(setup_info,
+            ['Patient Weight (kg)', 'Weight']
+            , "Unable to find patient weight in setup information"
+    )
     
     total_time = dextrose_rate_df['rel_time'].max() - dextrose_rate_df['rel_time'].min()
     
     mg_kg_min = mg_dextrose / patient_weight / total_time
     
-    print("volume:", volume)
-    print("Dex concentration", dex_concentration)
-    print("Mg Dextrose", mg_dextrose)
-    print("Patient weight", patient_weight)
-    print("Total_time", total_time)
-    print("mg_kg_min", mg_kg_min)
+    print(f"volume: {volume:.2f} mL")
+    print(f"Dex concentration: {dex_concentration:.2f}")
+    print(f"mg Dextrose: {mg_dextrose:.2f}")
+    print(f"Total_time: {total_time:.2f}min")
+    print(f"average rate: {mg_kg_min:.2f} mg/kg/min")
     return mg_kg_min
     
 
@@ -323,20 +356,30 @@ def get_dextrose_rate_stats(err_log_df, setup_info):
 
 # %%
 def get_insulin_rate_stats(err_log_df, setup_info):
+    # TODO: this doesnt really handle pauses...
     #volume in mL = integral over all time for a given rate (all rates are mL/hr, so integral will be mL)
     #U of insulin = [ins concentration] * 1 g/100mL * volume in mL * 1000mg/g
     #U/kg/hr = U of insulin / patient weight / total time in hours
     
     insulin_rate_df = get_pump_df(err_log_df, 'Insulin')
     volume = np.dot(insulin_rate_df['Rate (mL/hr)'][:-1], np.diff(insulin_rate_df['rel_time']/60))
-    ins_concentration = setup_info['Insulin Concentration (U/mL)']
+    ins_concentration = try_keys(setup_info,
+            ['Insulin Concentration (U/mL)', 'Insulin Concentration']
+            , "Unable to find insulin concentration in setup information"
+    )
     
-    u_of_insulin = ins_concentration * (1/100) * volume * 1000
-    patient_weight = setup_info['Patient Weight (kg)']
+    u_of_insulin = ins_concentration * volume
+    patient_weight = try_keys(setup_info,
+            ['Patient Weight (kg)', 'Weight']
+            , "Unable to find patient weight in setup information"
+    )
     total_time_hrs = (insulin_rate_df['rel_time'].max() - insulin_rate_df['rel_time'].min())/60
     
     u_kg_hr = u_of_insulin / patient_weight / total_time_hrs
-    print(volume)
+    print(f"volume: {volume:.2f} mL insulin")
+    print(f"insulin concentration: {ins_concentration:.2f} U/mL")
+    print(f"units of insulin: {u_of_insulin:.2f}")
+    print(f"avg rate: {u_kg_hr:.2f} U/kg/hr")
     return u_kg_hr
 
 
